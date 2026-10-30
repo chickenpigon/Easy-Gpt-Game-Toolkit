@@ -8,7 +8,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from . import derive, fit, guard, kb, media, roblox, spec as specmod, telemetry, timeline, ui_layout, unity_scene
+from . import derive, fit, gaps, guard, kb, media, roblox, spec as specmod, telemetry, timeline, ui_layout, unity_scene
 from .measure import Measurement
 
 
@@ -249,6 +249,23 @@ def cmd_kb(a) -> int:
     return 0
 
 
+def cmd_gaps(a) -> int:
+    if a.action == "plan":
+        r = gaps.plan(a.csv, a.project, a.plan, tuple(a.priority.split(",")))
+        print(f"{r['sessions']} sessions")
+        for f in r["files"]:
+            print(f"  {f}")
+    elif a.action == "apply":
+        out = a.out or str(Path(a.csv).with_suffix("")) + ".measured.csv"
+        report = Path(a.project) / "spec" / "MEASURED.md"
+        r = gaps.apply(a.csv, a.project, out, report)
+        print(f"{r['results']} rows with data: " + ", ".join(f"{k} {v}" for k, v in sorted(r["counts"].items())))
+        print(f"wrote {out} and {report}")
+    else:
+        print(gaps.status(a.csv, a.project))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="scpsl_cleanroom", description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -345,6 +362,15 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--window", type=float, default=10.0)
     sp.add_argument("--meters-per-stud", type=float, default=0.28)
     sp.set_defaults(fn=cmd_kb)
+
+    sp = sub.add_parser("gaps", help="spec gap list -> measurement sessions -> results back into the list")
+    sp.add_argument("action", choices=("plan", "status", "apply"))
+    sp.add_argument("csv", help="gap list CSV (id, category, subcategory, item, unit, ..., fill_method, priority)")
+    sp.add_argument("--project", default="project")
+    sp.add_argument("--plan", help="measurement plan markdown with '## 세션 N — title' sections")
+    sp.add_argument("--priority", default="P1,P2,P3", help="priorities to include (plan)")
+    sp.add_argument("-o", "--out", help="output CSV (apply), default <csv>.measured.csv")
+    sp.set_defaults(fn=cmd_gaps)
 
     sp = sub.add_parser("validate", help="check spec provenance and sample counts")
     sp.add_argument("--spec", required=True)

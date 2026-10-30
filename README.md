@@ -201,6 +201,44 @@ UI 변환: RectTransform(앵커, 피벗, 위치, 크기)을 Roblox `UDim2`/`Anch
 - 랜덤성이 있는 값(탄 퍼짐, 확률)은 분포(p10–p90)로 나옵니다. 샘플이 많을수록 정확해집니다.
 - 영상에서 위치를 자동으로 추출하지는 않습니다. 위치·속도가 필요한 항목은 텔레메트리가 필요합니다.
 
+### 7. 명세 공백 목록 → 측정 → CSV 반영 (`gaps`)
+
+공백 목록 CSV(`id, category, subcategory, item, unit, status, current_value, current_source, fill_method, priority, notes`)의
+`fill_method=play` 행은 측정 세션으로, `user` 행은 질문지로 바꾸고, 기록한 결과를 다시 CSV에 써 넣습니다.
+
+```bash
+python -m scpsl_cleanroom gaps plan  spec_gaps.csv --plan play_measurement_plan.md --project project
+python -m scpsl_cleanroom gaps status spec_gaps.csv --project project
+python -m scpsl_cleanroom gaps apply spec_gaps.csv --project project    # → spec_gaps.measured.csv + spec/MEASURED.md
+```
+
+`plan`이 만드는 것 (`project/measurements/`):
+
+| 파일 | 용도 |
+|---|---|
+| `session_NN.md` | 세션 체크리스트: 항목, 측정 방법, 변형(empty/tactical, open/close…), 현재 후보값 |
+| `session_NN.csv` | 기입 시트. 시도마다 한 줄. 이미 있으면 덮어쓰지 않음 |
+| `session_NN.tasks.json` | 어노테이터 과제 파일 |
+| `../notes/user_questions.yaml` | 기억으로 답할 질문 (`answer`만 채우기) |
+| `../notes/observations.yaml` | 규칙·효과처럼 문장으로 답할 play 항목 |
+
+단위별 자동 계산:
+
+| 단위 | 기록 | 계산 |
+|---|---|---|
+| s | 어노테이터 `s`/`e` 키 (변형은 `v`), 또는 `time_s` | 끝−시작, 중앙값 |
+| m | `distance_m` 또는 `cells` (복도 칸 수 × `CAL_CELL` 행에 잰 칸 길이) | 중앙값 |
+| m/s | 거리 + `time_s` | 거리 ÷ 시간 |
+| deg | 어노테이터: 조준점 클릭 → 탄착 클릭 (세로 FOV 입력), 또는 `lateral_m` + `distance_m` | atan |
+| rgb | 어노테이터: 영상 클릭 (5×5 픽셀 중앙값), 또는 `#RRGGBB` | 채널별 중앙값 |
+| HP, fraction | `before`/`after` | 차이 |
+| HP/s, fraction/s | `before`/`after` + `time_s` | 차이 ÷ 시간 |
+| curve, HP/m, `A vs B` | `x`, `y` 쌍 | 공식 자동 발견 + 그래프 |
+| rule, effect … | `note` 또는 notes YAML | 문장 그대로 |
+
+`apply`는 원래 열을 건드리지 않고 `measured_status / measured_value / measured_spread / measured_n / measured_source`
+열을 붙입니다. `MEASURED.md`에는 후보값과 10% 이상 다른 측정이 맨 위에 모입니다.
+
 ### 클린룸 운영 원칙
 
 1. 관측 팀과 이식 팀을 분리하고, 둘 사이에는 `spec.json` / `SPEC.md`만 오갑니다.

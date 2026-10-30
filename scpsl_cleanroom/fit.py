@@ -177,6 +177,11 @@ def _substitute(formula: str, params: dict[str, float]) -> str:
 
 def _lm(fn, x, y, p0, iters=200):
     """Small Levenberg-Marquardt with numeric Jacobian."""
+    with np.errstate(all="ignore"):
+        return _lm_inner(fn, x, y, p0, iters)
+
+
+def _lm_inner(fn, x, y, p0, iters):
     p = np.asarray(p0, dtype=float)
     lam = 1e-3
 
