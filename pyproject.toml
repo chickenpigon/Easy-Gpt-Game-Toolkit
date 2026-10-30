@@ -1,0 +1,16 @@
+[project]
+name = "scpsl-cleanroom"
+version = "0.1.0"
+description = "Clean-room porting toolkit: black-box measurement, licensed asset conversion and spec generation for Roblox ports"
+requires-python = ">=3.10"
+dependencies = ["PyYAML>=6"]
+
+[project.scripts]
+scpsl-cleanroom = "scpsl_cleanroom.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["scpsl_cleanroom"]

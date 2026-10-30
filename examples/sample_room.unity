@@ -1,0 +1,90 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!104 &2
+RenderSettings:
+  m_Fog: 1
+  m_FogColor: {r: 0.1, g: 0.1, b: 0.12, a: 1}
+  m_FogMode: 1
+  m_FogDensity: 0.01
+  m_LinearFogStart: 2.8
+  m_LinearFogEnd: 28
+  m_AmbientSkyColor: {r: 0.2, g: 0.2, b: 0.25, a: 1}
+  m_AmbientEquatorColor: {r: 0.15, g: 0.15, b: 0.15, a: 1}
+  m_AmbientGroundColor: {r: 0.05, g: 0.05, b: 0.05, a: 1}
+  m_AmbientIntensity: 1
+  m_AmbientMode: 1
+--- !u!1 &100
+GameObject:
+  m_Name: Room
+  m_IsActive: 1
+  m_Component:
+  - component: {fileID: 101}
+--- !u!4 &101
+Transform:
+  m_GameObject: {fileID: 100}
+  m_LocalRotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: 10, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children:
+  - {fileID: 201}
+  m_Father: {fileID: 0}
+--- !u!1 &200
+GameObject:
+  m_Name: CeilingLamp
+  m_IsActive: 1
+  m_Component:
+  - component: {fileID: 201}
+  - component: {fileID: 202}
+--- !u!4 &201
+Transform:
+  m_GameObject: {fileID: 200}
+  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: 0, y: 2.8, z: 1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 101}
+--- !u!108 &202
+Light:
+  m_GameObject: {fileID: 200}
+  m_Enabled: 1
+  m_Type: 0
+  m_Color: {r: 1, g: 0.95, b: 0.85, a: 1}
+  m_Intensity: 2.5
+  m_Range: 8
+  m_SpotAngle: 100
+  m_Shadows:
+    m_Type: 2
+    m_Strength: 1
+--- !u!1 &300
+GameObject:
+  m_Name: AlarmLight
+  m_IsActive: 1
+  m_Component:
+  - component: {fileID: 301}
+  - component: {fileID: 302}
+  - component: {fileID: 303}
+--- !u!4 &301
+Transform:
+  m_GameObject: {fileID: 300}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -3, y: 2, z: 4}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+--- !u!108 &302
+Light:
+  m_GameObject: {fileID: 300}
+  m_Enabled: 1
+  m_Type: 2
+  m_Color: {r: 1, g: 0, b: 0, a: 1}
+  m_Intensity: 1.2
+  m_Range: 30
+  m_Shadows:
+    m_Type: 0
+--- !u!114 &303
+MonoBehaviour:
+  m_GameObject: {fileID: 300}
+  m_Enabled: 1
+  m_Intensity: 600
+  m_LightUnit: 0
+  m_ColorTemperature: 6500
