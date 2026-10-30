@@ -1,0 +1,189 @@
+# Question templates per entity category. "{id}", "{name}", "{tag}" are replaced per entity.
+# Every question needs: id, ask, analysis. "record" tells the player what to capture.
+#
+# Event vocabulary used by the analyses (use the same names in telemetry/annotations):
+#   throw, bounce, explode, despawn, hit (+ tag, dist|src_pos, damage|hp)
+#   shoot, reload_start/reload_end, use_start/use_end, interact
+#   door_open_start/door_open_end, door_close_start/door_close_end
+#   anim:<name>, sound:<clip> (from media match), jump, land
+#   any "<name>_start"/"<name>_end" pair is a duration
+
+human_role:
+  - id: walk_speed
+    ask: 걷기 속도
+    analysis: {type: speed, role: "{id}", state: walk}
+    record: "{name}로 평지를 5초 이상 직선으로 걷기 x3 (state=walk)"
+  - id: sprint_speed
+    ask: 달리기 속도
+    analysis: {type: speed, role: "{id}", state: sprint}
+    record: "{name}로 평지 직선 달리기 x3 (state=sprint)"
+  - id: crouch_speed
+    ask: 웅크리기 이동 속도
+    analysis: {type: speed, role: "{id}", state: crouch}
+    record: "웅크린 채 직선 이동 x3 (state=crouch)"
+  - id: max_hp
+    ask: 최대 체력
+    analysis: {type: field_max, field: hp, role: "{id}"}
+    record: "스폰 직후 체력 기록"
+  - id: stamina_drain
+    ask: 달리기 중 스태미나 감소율
+    analysis: {type: rate, field: stamina, role: "{id}", state: sprint}
+    record: "가득 찬 상태에서 바닥날 때까지 달리기 (stamina 필드)"
+  - id: stamina_regen
+    ask: 정지 시 스태미나 회복률
+    analysis: {type: rate, field: stamina, role: "{id}", state: idle}
+    record: "바닥난 뒤 가만히 서서 가득 찰 때까지 대기"
+  - id: stamina_regen_delay
+    ask: 스태미나 회복 시작 지연
+    analysis: {type: regen_delay, field: stamina, role: "{id}", state: idle}
+    record: "위와 같음"
+  - id: jump
+    ask: 점프 높이와 체공 시간
+    analysis: {type: jump, role: "{id}"}
+    record: "평지 제자리 점프 x10 (jump 이벤트 + 위치 30Hz 이상)"
+  - id: fall_damage
+    ask: 낙하 높이별 피해 공식
+    analysis: {type: formula, extract: falloff, tag: fall, dist_field: fall_height, models: growth, x: "낙하 높이 (m)", y: "피해"}
+    record: "여러 높이에서 낙하, hit 이벤트(tag=fall, fall_height, hp)"
+  - id: sounds
+    ask: 관련 사운드
+    analysis: {type: asset, kind: audio_files, match: "{tag}"}
+  - id: animations
+    ask: 관련 애니메이션
+    analysis: {type: asset, kind: animations, match: "{tag}"}
+
+scp_role:
+  - id: move_speed
+    ask: 기본 이동 속도
+    analysis: {type: speed, role: "{id}", state: walk}
+    record: "{name}로 평지 직선 이동 x3"
+  - id: max_hp
+    ask: 최대 체력
+    analysis: {type: field_max, field: hp, role: "{id}"}
+    record: "스폰 직후 체력 기록"
+  - id: states
+    ask: 상태 전이 (능력 단계)
+    analysis: {type: states, role: "{id}"}
+    record: "능력 사용 전체 과정을 state 필드로 태깅"
+  - id: sounds
+    ask: 관련 사운드
+    analysis: {type: asset, kind: audio_files, match: "{tag}"}
+  - id: animator
+    ask: 애니메이터 상태 머신
+    analysis: {type: asset, kind: animators, match: "{tag}"}
+  - id: animations
+    ask: 애니메이션 클립 (길이, 이벤트)
+    analysis: {type: asset, kind: animations, match: "{tag}"}
+
+throwable:
+  - id: fuse_time
+    ask: 던진 뒤 폭발/발동까지 시간
+    analysis: {type: latency, from: throw, to: explode, tag: "{id}"}
+    record: "던지기(throw) ~ 폭발(explode) x10, tag={id}"
+  - id: damage_falloff
+    ask: 거리별 피해 감소 공식
+    analysis: {type: formula, extract: falloff, tag: "{id}", models: falloff, x: "거리 (m)", y: "피해"}
+    record: "여러 거리에서 피격 (hit, tag={id}, dist 또는 src_pos, hp). 거리당 3회 이상, 최소 8개 거리"
+  - id: sequence
+    ask: 던지기 이후 연출 타임라인 (모션/사운드/효과)
+    analysis: {type: sequence, trigger: throw, scope: tag, tag: "{id}"}
+    record: "던지는 장면 녹화 → annotate + sounds match"
+  - id: sounds
+    ask: 관련 사운드
+    analysis: {type: asset, kind: audio_files, match: "{tag}"}
+
+weapon:
+  - id: damage_falloff
+    ask: 거리별 피해 공식
+    analysis: {type: formula, extract: falloff, tag: "{id}", models: falloff, x: "거리 (m)", y: "피해"}
+    record: "같은 부위를 여러 거리에서 사격 (hit, tag={id}, dist, hp)"
+  - id: damage_head
+    ask: 머리 피해
+    analysis: {type: damage, tag: "{id}_head"}
+    record: "근거리 머리 사격 x10 (tag={id}_head)"
+  - id: damage_body
+    ask: 몸통 피해
+    analysis: {type: damage, tag: "{id}_body"}
+    record: "근거리 몸통 사격 x10 (tag={id}_body)"
+  - id: damage_limb
+    ask: 팔다리 피해
+    analysis: {type: damage, tag: "{id}_limb"}
+    record: "근거리 팔다리 사격 x10 (tag={id}_limb)"
+  - id: fire_interval
+    ask: 연사 간격
+    analysis: {type: interval, event: shoot, tag: "{id}"}
+    record: "버튼을 누른 채 연사 (shoot, tag={id})"
+  - id: magazine
+    ask: 탄창 용량
+    analysis: {type: count_between, event: shoot, reset: reload_end, tag: "{id}"}
+    record: "가득 찬 탄창을 다 쏘고 재장전, x3"
+  - id: reload_time
+    ask: 재장전 시간
+    analysis: {type: duration, event: reload, tag: "{id}"}
+    record: "빈 탄창에서 재장전 x5 (reload_start/reload_end)"
+  - id: sequence
+    ask: 사격/재장전 연출 타임라인
+    analysis: {type: sequence, trigger: reload_start, scope: tag, tag: "{id}"}
+  - id: sounds
+    ask: 관련 사운드
+    analysis: {type: asset, kind: audio_files, match: "{tag}"}
+  - id: animations
+    ask: 관련 애니메이션
+    analysis: {type: asset, kind: animations, match: "{tag}"}
+
+consumable:
+  - id: use_time
+    ask: 사용 시간
+    analysis: {type: duration, event: use, tag: "{id}"}
+    record: "사용 시작~완료 x5 (use_start/use_end, tag={id})"
+  - id: instant_heal
+    ask: 사용 직후 체력 변화
+    analysis: {type: field_delta, field: hp, event: use_end, tag: "{id}"}
+    record: "체력이 깎인 상태에서 사용 (hp 필드)"
+  - id: heal_over_time
+    ask: 사용 후 시간에 따른 체력 변화 공식
+    analysis: {type: formula, extract: time, y_field: hp, start_event: use_end, tag: "{id}", models: growth, x: "사용 후 시간 (s)", y: "체력"}
+    record: "사용 후 20초간 hp 기록"
+  - id: effects
+    ask: 기타 효과 (속도, 스태미나, 상태이상)
+    analysis: {type: manual}
+  - id: sounds
+    ask: 관련 사운드
+    analysis: {type: asset, kind: audio_files, match: "{tag}"}
+
+door:
+  - id: open_time
+    ask: 여는 데 걸리는 시간
+    analysis: {type: duration, event: door_open, tag: "{id}"}
+    record: "문 열기 x5 (door_open_start/door_open_end, tag={id})"
+  - id: close_time
+    ask: 닫는 데 걸리는 시간
+    analysis: {type: duration, event: door_close, tag: "{id}"}
+  - id: cooldown
+    ask: 연속 상호작용 최소 간격
+    analysis: {type: interval, event: interact, tag: "{id}"}
+    record: "상호작용 키 연타"
+  - id: sequence
+    ask: 상호작용 연출 타임라인
+    analysis: {type: sequence, trigger: interact, scope: tag, tag: "{id}"}
+  - id: sounds
+    ask: 관련 사운드
+    analysis: {type: asset, kind: audio_files, match: "{tag}"}
+  - id: animations
+    ask: 관련 애니메이션
+    analysis: {type: asset, kind: animations, match: "{tag}"}
+
+system:
+  - id: sequence
+    ask: 진행 타임라인
+    analysis: {type: sequence, trigger: "{id}_start", window: 300}
+    record: "시작부터 끝까지 이벤트 기록"
+  - id: duration
+    ask: 전체 지속 시간
+    analysis: {type: duration, event: "{id}"}
+  - id: sounds
+    ask: 관련 사운드
+    analysis: {type: asset, kind: audio_files, match: "{tag}"}
+  - id: rules
+    ask: 규칙/조건 (말로 정리)
+    analysis: {type: manual}

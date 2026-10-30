@@ -1,0 +1,237 @@
+# Starting catalog. Names only - no values. Verify against 10.2.2 and extend freely:
+# add entities, add questions, or remove templates that do not apply.
+#   id:        used in telemetry selectors (role / tag)
+#   tag:       regex for matching asset names (sounds, animations, animators)
+#   templates: question templates from _templates.yaml
+#   questions: extra entity-specific questions
+
+- {id: ClassD, name: Class-D, category: role.human, tag: "(?i)classd|class_d|dboy", templates: [human_role]}
+- {id: Scientist, name: Scientist, category: role.human, tag: "(?i)scientist", templates: [human_role]}
+- {id: FacilityGuard, name: Facility Guard, category: role.human, tag: "(?i)guard", templates: [human_role]}
+- {id: NtfCadet, name: NTF Cadet, category: role.human, tag: "(?i)ntf|mtf", templates: [human_role]}
+- {id: NtfLieutenant, name: NTF Lieutenant, category: role.human, tag: "(?i)ntf|mtf", templates: [human_role]}
+- {id: NtfCommander, name: NTF Commander, category: role.human, tag: "(?i)ntf|mtf", templates: [human_role]}
+- {id: ChaosInsurgency, name: Chaos Insurgency, category: role.human, tag: "(?i)chaos|ci_", templates: [human_role]}
+
+- id: Scp173
+  name: SCP-173
+  category: role.scp
+  tag: "(?i)173"
+  templates: [scp_role]
+  questions:
+    - id: blink
+      ask: 블링크(시선 해제 시 이동) 규칙 - 이동 거리, 쿨다운
+      analysis: {type: interval, event: blink, role: Scp173}
+      record: "아무도 안 볼 때 연속 이동 (blink 이벤트)"
+    - id: tantrum
+      ask: 탄트럼(오물) 지속시간/쿨다운
+      analysis: {type: duration, event: tantrum}
+
+- id: Scp096
+  name: SCP-096
+  category: role.scp
+  tag: "(?i)096"
+  templates: [scp_role]
+  questions:
+    - id: enrage_sequence
+      ask: 얼굴을 본 뒤 분노까지의 타임라인 (모션, 사운드, 상태)
+      analysis: {type: sequence, trigger: face_seen, window: 30}
+      record: "얼굴 보기(face_seen) 순간부터 annotate + 사운드 매칭"
+    - id: enrage_charge_time
+      ask: 분노 준비(울부짖음) 시간
+      analysis: {type: duration, event: enrage_windup}
+    - id: rage_duration
+      ask: 분노 지속 시간과 연장 조건
+      analysis: {type: duration, event: rage}
+    - id: rage_speed
+      ask: 분노 상태 이동 속도
+      analysis: {type: speed, role: Scp096, state: enraged}
+    - id: gate_force
+      ask: 게이트 강제 개방 타임라인 (전용 모션/사운드, 게이트 상태)
+      analysis: {type: sequence, trigger: gate_force_start, window: 15}
+      record: "분노 상태로 닫힌 게이트에 접근 → 녹화 → annotate(gate_force_start, anim, gate 상태) + sounds match"
+    - id: gate_force_conditions
+      ask: 강제 개방 가능 조건 (상태, 게이트 종류)
+      analysis: {type: context, event: gate_force_start}
+    - id: door_pry
+      ask: 일반 문 파괴/개방 방식
+      analysis: {type: sequence, trigger: door_break, window: 5}
+
+- id: Scp049
+  name: SCP-049
+  category: role.scp
+  tag: "(?i)049(?!_?2)"
+  templates: [scp_role]
+  questions:
+    - id: revive_time
+      ask: 부활 소요 시간
+      analysis: {type: duration, event: revive}
+    - id: attack_cooldown
+      ask: 공격 쿨다운
+      analysis: {type: interval, event: attack, role: Scp049}
+
+- {id: Scp0492, name: SCP-049-2, category: role.scp, tag: "(?i)049_?2|zombie", templates: [scp_role]}
+
+- id: Scp106
+  name: SCP-106
+  category: role.scp
+  tag: "(?i)106|larry|pocket"
+  templates: [scp_role]
+  questions:
+    - id: pocket_damage
+      ask: 주머니 차원 지속 피해 공식
+      analysis: {type: formula, extract: time, y_field: hp, start_event: pocket_enter, models: growth, x: "진입 후 시간 (s)", y: "체력"}
+    - id: portal_sequence
+      ask: 포탈 생성/이동 타임라인
+      analysis: {type: sequence, trigger: portal_use, window: 10}
+
+- id: Scp939
+  name: SCP-939
+  category: role.scp
+  tag: "(?i)939"
+  templates: [scp_role]
+  questions:
+    - id: attack_cooldown
+      ask: 공격 쿨다운
+      analysis: {type: interval, event: attack, role: Scp939}
+
+- id: Scp079
+  name: SCP-079
+  category: role.scp
+  tag: "(?i)079|computer"
+  templates: [scp_role]
+  questions:
+    - id: energy_regen
+      ask: 에너지 회복 공식 (레벨별)
+      analysis: {type: formula, extract: time, y_field: energy, models: growth, x: "시간 (s)", y: "에너지"}
+    - id: experience
+      ask: 경험치/레벨 규칙
+      analysis: {type: manual}
+
+- id: scp018
+  name: SCP-018
+  category: item.throwable
+  tag: "(?i)018|ball"
+  templates: [throwable]
+  questions:
+    - id: speed_per_bounce
+      ask: 튕길 때마다 속도가 변하는 공식
+      analysis: {type: formula, extract: bounce, id: scp018, models: growth, x: "튕긴 횟수", y: "속도 (m/s)"}
+      record: "닫힌 방에서 018을 던지고 멈출 때까지 공 위치 기록 (id=scp018, 30Hz 이상) x5"
+      min_n: 15
+    - id: damage_vs_speed
+      ask: 공 속도에 따른 피해 공식
+      analysis: {type: formula, extract: fields, x_field: speed, y_field: damage, event: hit, tag: scp018, models: growth, x: "속도 (m/s)", y: "피해"}
+      record: "공에 맞을 때 hit(tag=scp018, speed, damage 또는 hp)"
+    - id: lifetime
+      ask: 던진 뒤 사라질 때까지 시간
+      analysis: {type: latency, from: throw, to: despawn, tag: scp018}
+
+- {id: frag_grenade, name: Frag Grenade, category: item.throwable, tag: "(?i)grenade|frag", templates: [throwable]}
+- id: flashbang
+  name: Flashbang
+  category: item.throwable
+  tag: "(?i)flash"
+  templates: [throwable]
+  questions:
+    - id: blind_duration
+      ask: 거리/시선각에 따른 실명 지속 시간 공식
+      analysis: {type: formula, extract: fields, x_field: dist, y_field: blind_time, event: blinded, models: falloff, x: "거리 (m)", y: "실명 시간 (s)"}
+
+- {id: medkit, name: Medkit, category: item.consumable, tag: "(?i)medkit", templates: [consumable]}
+- {id: adrenaline, name: Adrenaline, category: item.consumable, tag: "(?i)adrenal", templates: [consumable]}
+- {id: painkillers, name: Painkillers, category: item.consumable, tag: "(?i)painkill", templates: [consumable]}
+- {id: scp500, name: SCP-500, category: item.consumable, tag: "(?i)500|pill", templates: [consumable]}
+- id: scp207
+  name: SCP-207
+  category: item.consumable
+  tag: "(?i)207|cola"
+  templates: [consumable]
+  questions:
+    - id: speed_bonus
+      ask: 복용 후 이동 속도 (중첩별)
+      analysis: {type: speed, state: sprint_scp207}
+    - id: hp_drain
+      ask: 복용 후 체력 감소 공식
+      analysis: {type: formula, extract: time, y_field: hp, start_event: use_end, tag: scp207, models: growth, x: "복용 후 시간 (s)", y: "체력"}
+- id: scp268
+  name: SCP-268
+  category: item.consumable
+  tag: "(?i)268|hat"
+  templates: [consumable]
+  questions:
+    - id: invis_duration
+      ask: 투명화 지속/쿨다운
+      analysis: {type: duration, event: invisible}
+
+- {id: com15, name: COM-15, category: item.weapon, tag: "(?i)com15|com-15", templates: [weapon]}
+- {id: usp, name: USP, category: item.weapon, tag: "(?i)usp", templates: [weapon]}
+- {id: mp7, name: MP7, category: item.weapon, tag: "(?i)mp7", templates: [weapon]}
+- {id: p90, name: Project 90, category: item.weapon, tag: "(?i)p90", templates: [weapon]}
+- {id: e11, name: Epsilon-11, category: item.weapon, tag: "(?i)e11|epsilon", templates: [weapon]}
+- {id: logicer, name: Logicer, category: item.weapon, tag: "(?i)logicer", templates: [weapon]}
+- id: microhid
+  name: Micro H.I.D.
+  category: item.weapon
+  tag: "(?i)micro|hid"
+  questions:
+    - id: windup
+      ask: 충전(와인드업) 시간
+      analysis: {type: duration, event: windup, tag: microhid}
+    - id: dps_vs_distance
+      ask: 거리별 피해
+      analysis: {type: formula, extract: falloff, tag: microhid, models: falloff, x: "거리 (m)", y: "피해"}
+    - id: energy_use
+      ask: 에너지 소모 공식
+      analysis: {type: formula, extract: time, y_field: energy, start_event: fire_start, tag: microhid, models: growth, x: "발사 시간 (s)", y: "에너지"}
+
+- {id: door_standard, name: 일반 문, category: facility.door, tag: "(?i)door", templates: [door]}
+- id: gate
+  name: 게이트 (Gate A/B 등)
+  category: facility.door
+  tag: "(?i)gate"
+  templates: [door]
+  questions:
+    - id: forced_by_096
+      ask: SCP-096 강제 개방 시 게이트 쪽 연출 (모션/사운드/개방 상태)
+      analysis: {type: sequence, trigger: gate_force_start, scope: tag, window: 15}
+- {id: checkpoint, name: 체크포인트, category: facility.door, tag: "(?i)checkpoint", templates: [door]}
+- id: elevator
+  name: 엘리베이터
+  category: facility.system
+  tag: "(?i)elevator|lift"
+  templates: [system]
+  questions:
+    - id: travel_time
+      ask: 이동 시간
+      analysis: {type: duration, event: elevator_move}
+- id: tesla
+  name: 테슬라 게이트
+  category: facility.system
+  tag: "(?i)tesla"
+  templates: [system]
+  questions:
+    - id: cycle
+      ask: 충전-방전 주기 타임라인
+      analysis: {type: sequence, trigger: tesla_trigger, window: 5}
+    - id: damage
+      ask: 피해량
+      analysis: {type: damage, tag: tesla}
+- {id: alpha_warhead, name: Alpha Warhead, category: facility.system, tag: "(?i)warhead|nuke|alpha", templates: [system]}
+- {id: decontamination, name: LCZ Decontamination, category: facility.system, tag: "(?i)decont", templates: [system]}
+- {id: generators, name: 발전기, category: facility.system, tag: "(?i)generator", templates: [system]}
+- {id: scp914, name: SCP-914, category: facility.system, tag: "(?i)914", templates: [system]}
+- {id: intercom, name: 인터컴, category: facility.system, tag: "(?i)intercom", templates: [system]}
+- {id: respawn, name: 리스폰 웨이브, category: facility.system, tag: "(?i)respawn|heli|chopper|van", templates: [system]}
+
+- id: hud
+  name: HUD / UI
+  category: ui
+  tag: "(?i)hud|ui|canvas"
+  questions:
+    - id: texts
+      ask: 텍스트 요소 (폰트, 크기, 위치, 정렬, 색)
+      analysis: {type: asset, kind: ui_text}
+    - id: fonts
+      ask: 사용 폰트 목록
+      analysis: {type: asset, kind: fonts}

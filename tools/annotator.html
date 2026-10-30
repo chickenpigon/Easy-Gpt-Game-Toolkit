@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Play Annotator</title>
+<style>
+  :root { --bg:#f7f7f8; --fg:#1a1a1a; --muted:#666; --line:#ddd; --accent:#2b6cb0; --card:#fff; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#16171a; --fg:#e8e8e8; --muted:#999; --line:#333; --accent:#63a4ff; --card:#1f2024; } }
+  :root[data-theme="dark"] { --bg:#16171a; --fg:#e8e8e8; --muted:#999; --line:#333; --accent:#63a4ff; --card:#1f2024; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 system-ui, sans-serif; }
+  main { display:grid; grid-template-columns: minmax(0,1fr) 340px; gap:12px; padding:12px 16px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  section { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px; min-width:0; }
+  video { width:100%; max-height:62vh; background:#000; border-radius:6px; }
+  h2 { font-size:13px; margin:0 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  textarea, input, button, select { font:inherit; color:inherit; background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:5px 8px; }
+  textarea { width:100%; min-height:130px; font-family:ui-monospace, monospace; font-size:12px; }
+  button { cursor:pointer; } button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:6px 0; }
+  #timeline { position:relative; height:34px; background:var(--bg); border:1px solid var(--line); border-radius:6px; margin-top:8px; cursor:pointer; overflow:hidden; }
+  #timeline .m { position:absolute; top:3px; width:2px; height:28px; }
+  #timeline .head { position:absolute; top:0; width:2px; height:100%; background:var(--fg); }
+  #events { max-height:46vh; overflow:auto; font-family:ui-monospace, monospace; font-size:12px; }
+  #events div { display:flex; gap:6px; padding:2px 0; border-bottom:1px solid var(--line); }
+  #events span.t { width:72px; color:var(--muted); cursor:pointer; }
+  #events span.e { flex:1; overflow-wrap:anywhere; }
+  #events button { padding:0 6px; }
+  #keys span { display:inline-block; margin:2px; padding:2px 6px; border:1px solid var(--line); border-radius:4px; font-size:12px; }
+  #flash { position:fixed; top:12px; right:16px; background:var(--accent); color:#fff; padding:6px 10px; border-radius:6px; opacity:0; transition:opacity .3s; pointer-events:none; }
+  .muted { color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+<main>
+  <section>
+    <div class="row">
+      <input type="file" id="file" accept="video/*">
+      <label>속도 <select id="rate"><option>0.25</option><option>0.5</option><option selected>1</option><option>2</option></select></label>
+      <label>FPS <input id="fps" type="number" value="60" style="width:64px"></label>
+      <span class="muted" id="time">0.000 s</span>
+    </div>
+    <video id="video" controls></video>
+    <div id="timeline"><div class="head" id="head"></div></div>
+    <p class="muted">Space 재생/정지 · , . 한 프레임 · [ ] 1초 · 단축키로 이벤트 기록 · Backspace 마지막 이벤트 삭제</p>
+  </section>
+  <section>
+    <h2>단축키 프리셋</h2>
+    <p class="muted">한 줄에 하나: <code>키 이벤트 [tag=값] [id=값]</code> · 또는 <code>kb hotkeys</code> 출력 JSON 붙여넣기</p>
+    <textarea id="preset">1 throw tag=scp018
+2 bounce tag=scp018
+3 hit tag=scp018
+4 despawn tag=scp018
+g gate_force_start tag=gate_a
+h anim:096_gate_pry tag=gate_a
+j state:gate_open tag=gate_a</textarea>
+    <div class="row">
+      <label>기본 id <input id="defid" value="player" style="width:90px"></label>
+      <label>offset(s) <input id="offset" type="number" value="0" step="0.001" style="width:80px"></label>
+    </div>
+    <div id="keys"></div>
+    <h2 style="margin-top:10px">이벤트 <span id="count"></span></h2>
+    <div id="events"></div>
+    <div class="row">
+      <button class="primary" id="export">JSONL 저장</button>
+      <label class="muted">불러오기 <input type="file" id="import" accept=".jsonl,.json,.txt"></label>
+      <button id="clear">전체 삭제</button>
+    </div>
+    <p class="muted">불러오기로 <code>sounds match</code> 결과를 열면 자동 감지된 사운드가 타임라인에 함께 표시됩니다.</p>
+  </section>
+</main>
+<div id="flash"></div>
+<script>
+const $ = id => document.getElementById(id);
+const video = $("video");
+let events = [];
+let keymap = {};
+let videoName = "video";
+const STORE = "annotator.v1";
+
+function save() { try { localStorage.setItem(STORE, JSON.stringify({events, preset: $("preset").value, videoName})); } catch (e) {} }
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE) || "null");
+    if (s) { events = s.events || []; if (s.preset) $("preset").value = s.preset; videoName = s.videoName || videoName; }
+  } catch (e) {}
+}
+
+function parsePreset() {
+  keymap = {};
+  const txt = $("preset").value.trim();
+  if (txt.startsWith("{")) {
+    try {
+      const j = JSON.parse(txt);
+      if (j.id) $("defid").value = j.id;
+      for (const k of j.keys || []) keymap[k.key] = {event: k.event, ...(k.tag ? {tag: k.tag} : {}), ...(k.id ? {id: k.id} : {})};
+    } catch (e) { flash("프리셋 JSON 오류"); }
+  } else {
+    for (const line of txt.split("\n")) {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length < 2 || parts[0].startsWith("#")) continue;
+      const spec = {event: parts[1]};
+      for (const kv of parts.slice(2)) { const [k, v] = kv.split("="); if (k && v !== undefined) spec[k] = isNaN(+v) ? v : +v; }
+      keymap[parts[0]] = spec;
+    }
+  }
+  $("keys").innerHTML = Object.entries(keymap).map(([k, s]) => `<span><b>${esc(k)}</b> ${esc(s.event)}${s.tag ? " · " + esc(s.tag) : ""}</span>`).join("");
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function flash(msg) { const f = $("flash"); f.textContent = msg; f.style.opacity = 1; clearTimeout(flash.t); flash.t = setTimeout(() => f.style.opacity = 0, 700); }
+function colorOf(name) { let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h} 70% 50%)`; }
+
+function add(spec) {
+  const t = +(video.currentTime + (+$("offset").value || 0)).toFixed(3);
+  const ev = {t, id: $("defid").value || "player", ...spec, source: "annotator:" + videoName};
+  events.push(ev);
+  events.sort((a, b) => a.t - b.t);
+  flash(`${ev.event} @ ${t.toFixed(3)}s`);
+  render(); save();
+}
+
+function render() {
+  $("count").textContent = `(${events.length})`;
+  $("events").innerHTML = events.map((e, i) =>
+    `<div><span class="t" data-t="${e.t}">${e.t.toFixed(3)}</span><span class="e" style="color:${colorOf(e.event)}">${esc(e.event)}${e.tag ? " · " + esc(e.tag) : ""}${e.score ? " (" + e.score + ")" : ""}</span><button data-i="${i}">×</button></div>`).join("");
+  const tl = $("timeline");
+  tl.querySelectorAll(".m").forEach(n => n.remove());
+  const dur = video.duration || Math.max(1, ...events.map(e => e.t));
+  const off = +$("offset").value || 0;
+  for (const e of events) {
+    const m = document.createElement("div");
+    m.className = "m"; m.title = `${e.event} ${e.t}`;
+    m.style.left = `${Math.min(100, Math.max(0, (e.t - off) / dur * 100))}%`;
+    m.style.background = colorOf(e.event);
+    tl.appendChild(m);
+  }
+}
+
+$("events").addEventListener("click", ev => {
+  const t = ev.target;
+  if (t.dataset.i !== undefined) { events.splice(+t.dataset.i, 1); render(); save(); }
+  else if (t.dataset.t !== undefined) video.currentTime = +t.dataset.t - (+$("offset").value || 0);
+});
+$("timeline").addEventListener("click", ev => {
+  const r = $("timeline").getBoundingClientRect();
+  if (video.duration) video.currentTime = (ev.clientX - r.left) / r.width * video.duration;
+});
+$("file").addEventListener("change", ev => {
+  const f = ev.target.files[0]; if (!f) return;
+  videoName = f.name; video.src = URL.createObjectURL(f); save();
+});
+$("rate").addEventListener("change", () => video.playbackRate = +$("rate").value);
+$("preset").addEventListener("input", () => { parsePreset(); save(); });
+video.addEventListener("timeupdate", () => {
+  $("time").textContent = video.currentTime.toFixed(3) + " s";
+  if (video.duration) $("head").style.left = (video.currentTime / video.duration * 100) + "%";
+});
+video.addEventListener("loadedmetadata", render);
+
+document.addEventListener("keydown", ev => {
+  if (["TEXTAREA", "INPUT", "SELECT"].includes(document.activeElement.tagName)) return;
+  const step = 1 / (+$("fps").value || 60);
+  if (ev.key === " ") { ev.preventDefault(); video.paused ? video.play() : video.pause(); return; }
+  if (ev.key === ",") { video.pause(); video.currentTime = Math.max(0, video.currentTime - step); return; }
+  if (ev.key === ".") { video.pause(); video.currentTime += step; return; }
+  if (ev.key === "[") { video.currentTime = Math.max(0, video.currentTime - 1); return; }
+  if (ev.key === "]") { video.currentTime += 1; return; }
+  if (ev.key === "Backspace") { events.pop(); render(); save(); return; }
+  const spec = keymap[ev.key.toLowerCase()];
+  if (spec) { ev.preventDefault(); add(spec); }
+});
+
+$("export").addEventListener("click", () => {
+  const header = `# annotator export of ${videoName}\n`;
+  const body = events.map(e => JSON.stringify(e)).join("\n") + "\n";
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([header + body], {type: "application/x-ndjson"}));
+  a.download = videoName.replace(/\.[^.]+$/, "") + ".annotations.jsonl";
+  a.click();
+});
+$("import").addEventListener("change", async ev => {
+  const f = ev.target.files[0]; if (!f) return;
+  const txt = await f.text();
+  let n = 0;
+  for (const line of txt.split("\n")) {
+    const l = line.includes("TLM {") ? line.slice(line.indexOf("TLM {") + 4) : line.trim();
+    if (!l || l.startsWith("#")) continue;
+    try { const e = JSON.parse(l); if (typeof e.event === "string" && typeof e.t === "number") { events.push(e); n++; } } catch (e) {}
+  }
+  events.sort((a, b) => a.t - b.t); render(); save(); flash(`${n}개 불러옴`);
+});
+$("clear").addEventListener("click", () => { if (confirm("모든 이벤트를 삭제할까요?")) { events = []; render(); save(); } });
+
+load(); parsePreset(); render();
+</script>
+</body>
+</html>

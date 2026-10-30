@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!74 &7400000
+AnimationClip:
+  m_Name: scp096_gate_pry
+  m_SampleRate: 30
+  m_AnimationClipSettings:
+    m_StartTime: 0
+    m_StopTime: 2.4
+    m_LoopTime: 0
+  m_FloatCurves: []
+  m_EulerCurves:
+  - path: Root/Spine
+  m_Events:
+  - time: 0.3
+    functionName: PlaySound
+    data: gate_force
+    floatParameter: 0
+    intParameter: 0
+  - time: 2.1
+    functionName: OpenGate
+    data:
+    floatParameter: 0
+    intParameter: 0

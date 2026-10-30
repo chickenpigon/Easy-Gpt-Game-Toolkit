@@ -30,6 +30,8 @@ pip install -e .        # 또는 PyYAML만 설치하고 python -m scpsl_cleanroo
 python -m unittest discover -s tests
 ```
 
+필요: Python 3.10+, PyYAML, numpy, (mp4/ogg 사운드 분석 시) ffmpeg.
+
 ### 1. 에셋 → 로블록스 조명/머티리얼
 
 라이선스상 허용된 에셋을 Unity 텍스트(YAML) 형식으로 내보낸 폴더를 넣습니다.
@@ -122,6 +124,82 @@ python -m scpsl_cleanroom guard spec.json out/
 
 디컴파일러 헤더, C# 선언/어트리뷰트, IL 옵코드, `3.9f` 같은 C# 실수 리터럴, 게임 어셈블리 참조를 찾아내면
 실패합니다. `assets`/`build` 출력은 쓰기 전에 자동으로 검사됩니다. 스펙 저장소의 pre-commit 훅으로 걸어 두세요.
+
+### 6. 상세 명세서 자동화 (`kb`) — 핵심 워크플로
+
+엔티티(역할, SCP, 아이템, 무기, 문, 시설 시스템, UI)마다 **질문 목록**이 있고,
+플레이 기록을 넣을 때마다 모든 질문이 자동으로 다시 분석되어 명세서가 채워집니다.
+
+```bash
+python -m scpsl_cleanroom kb init --project project          # 카탈로그(질문 목록) 생성
+python -m scpsl_cleanroom kb index path/to/exported_assets --project project   # 에셋 색인
+# project/sessions/ 에 플레이 기록(*.jsonl)을 넣고
+python -m scpsl_cleanroom kb build --project project         # 명세서 생성
+python -m scpsl_cleanroom kb discover --project project      # 카탈로그에 없는 규칙 자동 발견
+python -m scpsl_cleanroom kb demo --project demo             # (가짜 데이터로 결과물 미리보기)
+```
+
+생성물 (`project/spec/`):
+
+| 파일 | 내용 |
+|---|---|
+| `index.md` | 엔티티별 진행률 (완료/부분/미측정) |
+| `entities/<id>.md` | 엔티티 상세 명세: 수치, 공식(그래프 포함), 타임라인, 상태 머신, 에셋 목록 |
+| `PLAN.md` | **다음 플레이 세션 체크리스트** — 아직 못 잰 항목과 기록 방법 |
+| `DISCOVERED.md` | 카탈로그가 모르는 반복 패턴("A 다음엔 항상 B가 0.3초 뒤"), 상태 머신, 새 이벤트 |
+| `GameSpec.luau` | 확정된 값/공식/타임라인을 로블록스 모듈로 |
+| `spec.json` | 전체 결과 (기계 판독용) |
+
+#### 분석 종류
+
+| type | 하는 일 | 예 |
+|---|---|---|
+| `formula` | **공식 자동 발견**: 15개 후보 모델(선형, 기하급수, 상한 있는 증가, 포화, 거리 감쇠 4종 등)을 맞춰 AICc로 고르고, 노이즈 범위 안에서 반올림된 값(설계자가 쓸 법한 1.15, 200 등)을 제시 | 018 튕김당 속도 → `y = min(4 * 1.15^x, 30)`, 수류탄 → `y = 200 for x<=2, linear to 0 at x=8` |
+| `sequence` | 트리거 이후 **항상 따라오는 이벤트**와 시간 오프셋 (모션/사운드/상태) | 096 게이트 강제 개방: `anim +0.06s → sound +0.29s → state:opening +2.1s → state:open +3.3s` |
+| `states` | 상태 전이도, 각 상태 체류 시간, 전이를 일으킨 이벤트 | 096 평온→분노→진정 |
+| `context` | 이벤트가 일어날 때의 조건(역할, 상태, 대상) | 강제 개방 가능 조건 |
+| `speed` `rate` `regen_delay` `jump` | 이동 속도, 스태미나 증감, 회복 지연, 점프 높이/체공 | |
+| `duration` `latency` `interval` `count_between` | 지속 시간, A→B 지연, 쿨다운, 탄창 용량 | |
+| `damage` `field_delta` `field_max` | 피격당 피해, 사용 전후 체력 변화, 최대 체력 | |
+| `asset` | 에셋 색인에서 이름 매칭: 사운드, 애니메이션(길이, 애니메이션 이벤트), 애니메이터(상태/전이 조건), UI 텍스트, 폰트, 조명 | |
+| `manual` | `notes/*.yaml`에 직접 적은 답 | 말로만 설명 가능한 규칙 |
+
+카탈로그(`project/catalog/*.yaml`)는 **시작점일 뿐입니다**. 엔티티 이름과 질문만 있고 수치는 하나도 없습니다.
+10.2.2에 없는 것은 지우고, 모르는 시스템은 `DISCOVERED.md`의 제안을 보고 질문으로 추가하세요.
+
+#### 플레이를 넣는 방법
+
+1. **영상 어노테이터** `tools/annotator.html`: 브라우저로 열고 플레이 영상을 불러온 뒤 단축키로 이벤트를 찍습니다
+   (`,` `.` 한 프레임 이동, 0.25배속 지원). 엔티티별 단축키 프리셋은 `kb hotkeys --entity Scp096`.
+2. **사운드 자동 식별**: 라이선스 사운드 라이브러리가 영상의 몇 초에 재생됐는지 자동으로 찾아 이벤트로 만듭니다.
+   ```bash
+   python -m scpsl_cleanroom sounds match play3.mp4 --library assets/Audio -o project/sessions/play3.sounds.jsonl
+   python -m scpsl_cleanroom sounds onsets play3.mp4 -o unknown.jsonl   # 라이브러리에 없는 소리의 시작점
+   ```
+3. **텔레메트리**: 직접 운영하는 서버에서 위치/체력 등을 기록한 JSONL.
+
+같은 플레이의 파일은 점 앞 이름을 맞추세요 (`play3.jsonl`, `play3.annotations.jsonl`, `play3.sounds.jsonl` → 한 세션).
+시간이 어긋나면 파일 첫 줄에 `# offset: 1.25` 를 넣습니다. 서로 다른 세션은 타임라인이 섞이지 않습니다.
+
+#### 개별 도구
+
+```bash
+python -m scpsl_cleanroom fit s.jsonl --extract bounce --id scp018 --models growth --plot bounce.svg
+python -m scpsl_cleanroom fit s.jsonl --extract falloff --tag frag_grenade --models falloff
+python -m scpsl_cleanroom timeline s.jsonl --trigger gate_force_start --scope tag
+python -m scpsl_cleanroom ui path/to/UI -o out    # UI 레이아웃/폰트 → UiLayout.luau (+ roblox/UiBuilder.luau)
+```
+
+UI 변환: RectTransform(앵커, 피벗, 위치, 크기)을 Roblox `UDim2`/`AnchorPoint`로 바꾸고, CanvasScaler 기준 해상도로
+오프셋을 스케일로 바꿔 해상도에 무관하게 만듭니다. TextMeshPro와 기본 UI Text 모두 폰트, 크기, 색, 정렬을 추출하며,
+`.meta` 파일의 guid로 폰트 파일 이름을 찾습니다.
+
+#### 자동화의 한계
+
+- 수치/공식/타이밍/상태 전이는 **기록만 있으면 자동**으로 나옵니다. 다만 무엇을 기록할지(이벤트 이름 붙이기)는 사람이 해야 합니다.
+- 이 도구는 게임 시스템을 미리 알지 못합니다. 카탈로그는 일반적인 질문 틀이고, 숨겨진 규칙은 `discover`가 데이터에서 찾은 후보를 보고 사람이 판단합니다.
+- 랜덤성이 있는 값(탄 퍼짐, 확률)은 분포(p10–p90)로 나옵니다. 샘플이 많을수록 정확해집니다.
+- 영상에서 위치를 자동으로 추출하지는 않습니다. 위치·속도가 필요한 항목은 텔레메트리가 필요합니다.
 
 ### 클린룸 운영 원칙
 

@@ -1,0 +1,71 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &10
+GameObject:
+  m_Name: HudCanvas
+  m_IsActive: 1
+--- !u!224 &11
+RectTransform:
+  m_GameObject: {fileID: 10}
+  m_Children:
+  - {fileID: 21}
+  - {fileID: 31}
+  m_Father: {fileID: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0, y: 0}
+--- !u!114 &12
+MonoBehaviour:
+  m_GameObject: {fileID: 10}
+  m_UiScaleMode: 1
+  m_ReferenceResolution: {x: 1920, y: 1080}
+--- !u!1 &20
+GameObject:
+  m_Name: HealthText
+  m_IsActive: 1
+--- !u!224 &21
+RectTransform:
+  m_GameObject: {fileID: 20}
+  m_Children: []
+  m_Father: {fileID: 11}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 120, y: 60}
+  m_SizeDelta: {x: 200, y: 50}
+  m_Pivot: {x: 0, y: 0}
+--- !u!114 &22
+MonoBehaviour:
+  m_GameObject: {fileID: 20}
+  m_text: 100
+  m_fontAsset: {fileID: 11400000, guid: 0123456789abcdef0123456789abcdef, type: 2}
+  m_fontSize: 36
+  m_enableAutoSizing: 0
+  m_fontColor: {r: 1, g: 1, b: 1, a: 0.9}
+  m_HorizontalAlignment: 1
+  m_VerticalAlignment: 512
+--- !u!1 &30
+GameObject:
+  m_Name: TopBar
+  m_IsActive: 1
+--- !u!224 &31
+RectTransform:
+  m_GameObject: {fileID: 30}
+  m_Children: []
+  m_Father: {fileID: 11}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 40}
+  m_Pivot: {x: 0.5, y: 1}
+--- !u!114 &32
+MonoBehaviour:
+  m_GameObject: {fileID: 30}
+  m_Text: FACILITY
+  m_FontData:
+    m_Font: {fileID: 12800000, guid: 0123456789abcdef0123456789abcdef, type: 3}
+    m_FontSize: 24
+    m_Alignment: 4
+    m_BestFit: 0
+  m_Color: {r: 0.9, g: 0.9, b: 0.9, a: 1}
