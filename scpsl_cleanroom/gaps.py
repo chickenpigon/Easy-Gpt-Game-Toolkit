@@ -34,7 +34,7 @@ CAL_CELL = "CAL_CELL"  # sheet row id holding the measured corridor cell length 
 KINDS = {
     "time": ("annotator s/e 키로 시작·끝 프레임, 또는 time_s", 5),
     "distance": ("distance_m 또는 cells(복도 칸 수)", 3),
-    "speed": ("distance_m|cells + time_s, 또는 value", 3),
+    "speed": ("distance_m(또는 cells) + time_s, 또는 value", 3),
     "angle": ("annotator 각도 측정(클릭 2번), 또는 lateral_m + distance_m", 5),
     "color": ("annotator 색 추출(클릭), 또는 value=#RRGGBB", 3),
     "amount": ("before/after(RA로 읽은 값), 또는 value", 5),
